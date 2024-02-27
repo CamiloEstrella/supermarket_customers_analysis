@@ -47,7 +47,7 @@ ggplot(top_aisles, aes(x = reorder(aisle, -sales_count), y = sales_count)) +
   labs(x = "Aisle", y = "Number of sales", title = "Aisle sales")
 
 
-## ---Reduction of variables in cross table-------------------------------------
+## ---Reduction of variables in "cruzada" table-------------------------------------
 # Replace spaces with periods in corridor names
 top_aisles$aisle <- gsub(" ", ".", top_aisles$aisle)
 
@@ -113,7 +113,7 @@ plot_proportions <- function(proportions_df, suffix) {
          title = paste("Comparison of Proportions of Sales between Full and Sample Datasets", suffix))
 }
 
-# Modified function to perform chi-square test and return adjusted and unadjusted p-values
+# Function to perform chi-square test and return adjusted and unadjusted p-values
 perform_chi_square_test <- function(complete_dataset, sample_dataset) {
   successes_complete <- colSums(complete_dataset)
   failures_complete <- nrow(complete_dataset) - successes_complete
