@@ -2,7 +2,9 @@
 title: "logistic_biplot_script"
 author: "Camilo Estrella"
 date: "2024-02-20"
-output: pdf_document
+output:
+  word_document: default
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE, warning = FALSE, message = FALSE}
@@ -254,11 +256,57 @@ The sample validation graphs are printed below, where the proportions are compar
 lapply(chart_list, print)
 ```
 
+The next step is to print both the unadjusted and adjusted p-values for all samples.
 
+```{r}
+lapply(names(results_p_values), function(suffix) {
+  results <- results_p_values[[suffix]]
+  cat(paste("Results for sample size:", suffix, "\n"))
+  
+  # Unadjusted P-values
+  cat("Unadjusted P-values:\n")
+  print(kable(as.data.frame(results$unadjusted_p_values), format = "markdown"))
+  
+  # Adjusted P-values (Bonferroni)
+  cat("\nAdjusted P-values (Bonferroni):\n")
+  print(kable(as.data.frame(results$adjusted_p_values), format = "markdown"))
+  
+  cat("\n---\n")
+})
+```
 
+As can be seen, all the adjusted p-values are one or give a very close value. Therefore, these random samples can be used, and the result will be representative.
 
+## Logistic Biplot
 
+The final step in the exploratory analysis of the customers' behavior is implementing a Binary Logistic Biplot. This technique allows the representation of the variables and the subjects in a reduced dimensional space.
 
+Vicente-Villardón (2006) developed a Binary Logistic Biplot as a solution to implement a Biplot for binary data. It facilitates the interpretation of the results and offers an alternative for binary data exploration.
+
+For this, the code to generate the Biplot of all the samples is presented below.
+
+```{r}
+for(suffix in suffixes) {
+  # Construct the name of the current dataset
+  dataset_name <- paste("random_dataset_", suffix, sep = "")
+  
+  # Accessing the dataset using get()
+  current_dataset <- get(dataset_name)
+  
+  # Apply BinaryLogBiplotGD function to current dataset
+  newBinaryData <- BinaryLogBiplotGD(current_dataset)
+  
+  # Generate the plot for the current dataset
+  plot(newBinaryData, Mode="ah", ShowAxis = TRUE, margin = 0.4, AbbreviateLabels = FALSE,
+       Significant = FALSE, LabelRows = FALSE)
+}
+```
+
+In the sample size of 300, the points seem to be a little more dispersed, but as the sample increases, the points tend to become more concentrated, and even their orientation rotates a little in the direction of dimension 2. So, it is possible that dimension 2 better explains the distribution of the elements in the sample size of 1000, while in the sample size of 300, the same thing happens, but with dimension 1.
+
+Considering that the shortest vectors represent the best-represented variables and that the Bonferroni adjustment has been applied to the categories, all have either a good or acceptable representation. The worst represented are the variables: bread and eggs in the sample of 300; soft.drinks in sample 400; frozen.meals in the sample of 500; toilet, seltzer, bread, and cream in the sample of 700; and water.seltzer, soup.broth, nuts.seeds and packaged.vegetables.fruits for the sample of 1000.
+
+The result of the association between variables (aisles) can be seen in the next table, where they have been grouped by color and sample size so that associations have been created according to the graphic interpretation of each of the resulting biplots.
 
 
 
