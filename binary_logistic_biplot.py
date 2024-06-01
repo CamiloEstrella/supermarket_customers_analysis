@@ -10,6 +10,8 @@ matplotlib.use('TkAgg')
 
 import seaborn as sns
 from sklearn.model_selection import train_test_split
+from sklearn.decomposition import PCA
+from sklearn.linear_model import LogisticRegression
 
 # -------------------------------------------------------------------------------------------------------
 ## 0. Working on Order_Product.csv
@@ -66,14 +68,34 @@ reduced_cruzada = cruzada[top_aisle_names]
 # -------------------------------------------------------------------------------------------------------
 ## 4. Generate Random Samples
 
+# Function to perform proportional sampling
+def proportional_sample(df, n, random_state=None):
+    np.random.seed(random_state)
+    samples = []
+    for col in df.columns:
+        col_samples = df[col].value_counts(normalize=True).to_dict()
+        col_sampled = np.random.choice(
+            list(col_samples.keys()), 
+            size=n, 
+            p=list(col_samples.values())
+        )
+        samples.append(pd.Series(col_sampled, name=col))
+    return pd.concat(samples, axis=1)
+
+# Generate samples using proportional sampling
 sample_sizes = [300, 400, 500, 700, 1000]
+random_states = [101, 202, 303, 404, 505]
 samples = {}
 
-for size in sample_sizes:
-    samples[size] = reduced_cruzada.sample(n=size, random_state = size)
+for size, state in zip(sample_sizes, random_states):
+    try:
+        samples[size] = proportional_sample(reduced_cruzada, size, random_state=state)
+        print(f"Sample size {size} created successfully.")
+    except Exception as e:
+        print(f"Error creating sample size {size}: {e}")
 
-# -------------------------------------------------------------------------------------------------------
-### 5. Validation of Samples
+# Check the samples dictionary
+print("Samples dictionary keys:", samples.keys())
 
 # Function to calculate proportions and create a dataframe
 def create_proportions_df(complete_dataset, sample_dataset):
@@ -104,14 +126,6 @@ def plot_proportions(proportions_df, suffix):
     plt.title(f'Comparison of Proportions of Sales between Full and Sample Datasets {suffix}')
     plt.show()
 
-# Calculate and plot proportions for each sample
-for size in sample_sizes:
-    sample_dataset = samples[size]
-    proportions_df = create_proportions_df(reduced_cruzada, sample_dataset)
-    plot_proportions(proportions_df, size)
-
-### Step 7: Perform Chi-Square Tests
-
 # Function to perform chi-square test and return adjusted and unadjusted p-values
 def perform_chi_square_test(complete_dataset, sample_dataset):
     p_values = []
@@ -123,36 +137,107 @@ def perform_chi_square_test(complete_dataset, sample_dataset):
     
     p_values = np.array(p_values)
     adjusted_p_values = p_values * len(p_values)  # Bonferroni correction
+    adjusted_p_values[adjusted_p_values > 1] = 1  # Cap p-values at 1
     
     return p_values, adjusted_p_values
 
-# Perform chi-square tests for each sample
+# Validate and plot proportions for each sample
 for size in sample_sizes:
-    sample_dataset = samples[size]
-    p_values, adjusted_p_values = perform_chi_square_test(reduced_cruzada, sample_dataset)
-    print(f"Results for sample size: {size}")
-    print(f"Unadjusted P-values: {p_values}")
-    print(f"Adjusted P-values (Bonferroni): {adjusted_p_values}")
-    print("---")
+    if size in samples:
+        sample_dataset = samples[size]
+        proportions_df = create_proportions_df(reduced_cruzada, sample_dataset)
+        plot_proportions(proportions_df, size)
+    else:
+        print(f"Sample size {size} is missing in the samples dictionary.")
 
+# -------------------------------------------------------------------------------------------------------
+## 5. Perform chi-square tests for each sample
 
-### Step 8: Logistic Biplot (Example with PCA)
-
-# For simplicity, let's use PCA as an example, as Python does not have a direct equivalent of `BinaryLogBiplotGD`.
-
-
-from sklearn.decomposition import PCA
-
-# Apply PCA (as a substitute for BinaryLogBiplotGD)
 for size in sample_sizes:
-    sample_dataset = samples[size]
+    if size in samples:
+        sample_dataset = samples[size]
+        p_values, adjusted_p_values = perform_chi_square_test(reduced_cruzada, sample_dataset)
+        print(f"Results for sample size: {size}")
+        print(f"Unadjusted P-values: {p_values}")
+        print(f"Adjusted P-values (Bonferroni): {adjusted_p_values}")
+        print("---")
+    else:
+        print(f"Sample size {size} is missing in the samples dictionary.")
+
+# Note: If necessary, the written process is left importing the random samples generated with R.
+#########################
+
+# Function to calculate proportions and create a dataframe
+# def create_proportions_df(complete_dataset, sample_dataset):
+#     proportions_complete = complete_dataset.mean()
+#     proportions_sample = sample_dataset.mean()
     
-    pca = PCA(n_components=2)
-    pca_result = pca.fit_transform(sample_dataset)
+#     proportions_df_complete = pd.DataFrame({
+#         'Aisle': proportions_complete.index,
+#         'Proportion': proportions_complete.values,
+#         'Type': 'Complete'
+#     })
+
+#     proportions_df_sample = pd.DataFrame({
+#         'Aisle': proportions_sample.index,
+#         'Proportion': proportions_sample.values,
+#         'Type': 'Sample'
+#     })
     
-    plt.figure(figsize=(10, 8))
-    plt.scatter(pca_result[:, 0], pca_result[:, 1])
-    plt.title(f'PCA of Sample Dataset {size}')
-    plt.xlabel('PC1')
-    plt.ylabel('PC2')
-    plt.show()
+#     proportions_df = pd.concat([proportions_df_complete, proportions_df_sample])
+    
+#     return proportions_df
+
+# # Function to plot proportions
+# def plot_proportions(proportions_df, suffix):
+#     plt.figure(figsize=(12, 8))
+#     sns.barplot(x='Aisle', y='Proportion', hue='Type', data=proportions_df, palette={'Complete': 'blue', 'Sample': 'red'})
+#     plt.xticks(rotation=90)
+#     plt.title(f'Comparison of Proportions of Sales between Full and Sample Datasets {suffix}')
+#     plt.show()
+
+# # Function to perform chi-square test and return adjusted and unadjusted p-values
+# def perform_chi_square_test(complete_dataset, sample_dataset):
+#     p_values = []
+    
+#     for column in complete_dataset.columns:
+#         contingency_table = pd.crosstab(index=complete_dataset[column], columns=sample_dataset[column])
+#         chi2, p, dof, ex = chi2_contingency(contingency_table)
+#         p_values.append(p)
+    
+#     p_values = np.array(p_values)
+#     adjusted_p_values = p_values * len(p_values)  # Bonferroni correction
+#     adjusted_p_values[adjusted_p_values > 1] = 1  # Cap p-values at 1
+    
+#     return p_values, adjusted_p_values
+
+# # Read the full dataset and the samples
+# sample_sizes = [300, 400, 500, 700, 1000]
+# sample_files = {
+#     300: "random_dataset_300.csv",
+#     400: "random_dataset_400.csv",
+#     500: "random_dataset_500.csv",
+#     700: "random_dataset_700.csv",
+#     1000: "random_dataset_1000.csv"
+# }
+# samples = {size: pd.read_csv(file) for size, file in sample_files.items()}
+
+# # Validate and plot proportions for each sample
+# for size in sample_sizes:
+#     sample_dataset = samples[size]
+#     proportions_df = create_proportions_df(reduced_cruzada, sample_dataset)
+#     plot_proportions(proportions_df, size)
+
+# # Perform chi-square tests for each sample
+# for size in sample_sizes:
+#     sample_dataset = samples[size]
+#     p_values, adjusted_p_values = perform_chi_square_test(reduced_cruzada, sample_dataset)
+#     print(f"Results for sample size: {size}")
+#     print(f"Unadjusted P-values: {p_values}")
+#     print(f"Adjusted P-values (Bonferroni): {adjusted_p_values}")
+#     print("---")
+
+#########################
+
+# -------------------------------------------------------------------------------------------------------
+## 6. Binary Logistic Biplot
